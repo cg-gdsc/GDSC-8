@@ -8,7 +8,15 @@ This syllabus is a modular training framework for the Global Data Science Challe
 **References**: Include links or citations to relevant documentation, tutorials, or examples.
 **Exercises**: Add both simple and advanced exercises. These can be coding tasks, data exploration, prompt design, or architecture sketches. Authors decide what fits best.
 **Support Reminder**: Encourage participants to connect via the Teams channel for help, collaboration, and discussion. Office hours will be held regularly.
-**Style**: Keep content fun, concise, purposeful, and aligned with the challenge goals. Assume participants are clever and motivated but may lack technical depth. The GDSC is aimed at everybody from beginners to experts
+
+**Style Guidelines**: 
+- **Natural, dev-to-dev tone**: Write like a senior developer explaining to colleagues, not corporate training material
+- **Keep it real**: Acknowledge TODOs, costs, competitive aspects honestly
+- **Conversational language**: "Let's get our hands dirty" not "Welcome to Module X!"
+- **Practical focus**: "and not go broke doing it" instead of polished consulting speak
+- **Geek-friendly**: Assume participants are smart and motivated; they're here because they want to learn AI
+- **Authentic**: It's okay to say "this is tricky" or "we don't know the exact pricing yet"
+- **Human**: We're consultants AND competitors AND geeks - embrace all aspects
 
 **Key Theme**: Frame everything through the lens of **modern consulting skills** - balancing capability, cost, and environmental impact. Show how LLMs have transformed solution development but require strategic thinking.
 
