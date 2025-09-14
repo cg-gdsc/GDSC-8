@@ -237,10 +237,100 @@ def get_training_paths() -> List[Path]:
     return paths
 
 
+# Cost tracking utilities for Mistral API usage
+MISTRAL_PRICING = {
+    'mistral-large-latest': {'input': 2.00, 'output': 6.00},  # per 1M tokens
+    'mistral-medium-latest': {'input': 0.40, 'output': 2.00},  # per 1M tokens
+    'mistral-small-latest': {'input': 0.10, 'output': 0.30},  # per 1M tokens
+}
+
+COST_TRACKER = {
+    'api_calls': 0,
+    'total_input_tokens': 0,
+    'total_output_tokens': 0,
+    'estimated_cost': 0.0,
+    'by_model': {}
+}
+
+
+def calculate_cost(input_tokens: int, output_tokens: int, model: str = 'mistral-medium-latest') -> float:
+    """
+    Calculate actual cost based on Mistral's pricing.
+
+    Args:
+        input_tokens: Number of input tokens
+        output_tokens: Number of output tokens
+        model: Mistral model identifier
+
+    Returns:
+        Estimated cost in USD
+    """
+    pricing = MISTRAL_PRICING.get(model, MISTRAL_PRICING['mistral-medium-latest'])
+    input_cost = (input_tokens / 1_000_000) * pricing['input']
+    output_cost = (output_tokens / 1_000_000) * pricing['output']
+    return input_cost + output_cost
+
+
+def track_api_call(response, model: str = 'mistral-medium-latest') -> float:
+    """
+    Track costs from Strands agent responses.
+
+    Args:
+        response: Response object from Strands agent
+        model: Mistral model identifier used
+
+    Returns:
+        Cost of this specific API call
+    """
+    if hasattr(response, 'metrics') and response.metrics:
+        input_tokens = response.metrics.accumulated_usage.get('inputTokens', 0)
+        output_tokens = response.metrics.accumulated_usage.get('outputTokens', 0)
+
+        cost = calculate_cost(input_tokens, output_tokens, model)
+
+        COST_TRACKER['api_calls'] += 1
+        COST_TRACKER['total_input_tokens'] += input_tokens
+        COST_TRACKER['total_output_tokens'] += output_tokens
+        COST_TRACKER['estimated_cost'] += cost
+
+        if model not in COST_TRACKER['by_model']:
+            COST_TRACKER['by_model'][model] = {'calls': 0, 'cost': 0.0}
+        COST_TRACKER['by_model'][model]['calls'] += 1
+        COST_TRACKER['by_model'][model]['cost'] += cost
+
+        return cost
+    return 0.0
+
+
+def print_cost_summary():
+    """Display running cost summary for API usage."""
+    print("💰 Cost Summary:")
+    print(f"  Total API calls: {COST_TRACKER['api_calls']}")
+    print(f"  Total tokens: {COST_TRACKER['total_input_tokens'] + COST_TRACKER['total_output_tokens']:,}")
+    print(f"  Estimated cost: ${COST_TRACKER['estimated_cost']:.4f}")
+
+    if COST_TRACKER['by_model']:
+        print("\n  By model:")
+        for model, stats in COST_TRACKER['by_model'].items():
+            print(f"    {model}: {stats['calls']} calls, ${stats['cost']:.4f}")
+
+
+def reset_cost_tracker():
+    """Reset the cost tracker to zero."""
+    global COST_TRACKER
+    COST_TRACKER = {
+        'api_calls': 0,
+        'total_input_tokens': 0,
+        'total_output_tokens': 0,
+        'estimated_cost': 0.0,
+        'by_model': {}
+    }
+
+
 def sanity_check() -> bool:
     """
     Verify connection to the challenge API infrastructure.
-    
+
     Returns:
         True if connection successful, False otherwise
     """

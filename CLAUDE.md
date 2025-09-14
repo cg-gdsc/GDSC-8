@@ -130,10 +130,45 @@ coverage = (# required skills satisfied) / (total required skills)
 - **python-dotenv**: Environment variable management
 - **Python 3.11+**: Required runtime
 
-## Evaluation Criteria
-1. **Matching accuracy**: Correct job/training recommendations
-2. **Resource efficiency**: Optimal token usage (green computing)
-3. **Response quality**: Clear, actionable recommendations
+## Evaluation Criteria & Scoring Function
+
+### How Scoring Works (from eval/evaluate_all.py)
+
+The evaluation system calculates your score based on two main components:
+
+1. **Type Accuracy (50% of score)**
+   - Did you correctly identify whether the persona needs `jobs+trainings`, `trainings_only`, or `awareness`?
+   - Binary: either correct (1.0) or wrong (0.0)
+   - For awareness cases: includes minors (<16) who should get `predicted_items: "too_young"`
+
+2. **Recommendation Accuracy (50% of score)**
+   - How well did your specific recommendations match the gold standard?
+   - Calculated differently per type:
+
+   **For `jobs+trainings`:**
+   - Job matching F1 score (50% of RecoScore)
+   - Training suggestions per job F1 score (50% of RecoScore)
+   - Formula: `RecoScore = 0.5 * F1_Jobs + 0.5 * F1_TrainingsPerJob`
+
+   **For `trainings_only`:**
+   - F1 score between predicted and gold training sets
+   - Formula: `RecoScore = F1_Trainings`
+
+   **For `awareness`:**
+   - Exact match on reason (e.g., "too_young", "info_request")
+   - Formula: `RecoScore = 1.0 if reasons match else 0.0`
+
+3. **Final Score Calculation**
+   ```
+   FinalScore = 0.5 * TypeAccuracy + 0.5 * RecoMacro
+   ```
+   Where RecoMacro is the average RecoScore across all personas
+
+### Important Notes for Scoring
+- Type mismatch = 0 RecoScore (even if recommendations are good)
+- Missing the awareness type for minors is leaving easy points on the table
+- Training suggestions matter! They're 25% of your score for jobs+trainings type
+- The evaluator normalizes field names (e.g., `predicted_type` and `gold_type` both work)
 
 ## Tutorial Author Guidelines
 
