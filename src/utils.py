@@ -271,35 +271,54 @@ def calculate_cost(input_tokens: int, output_tokens: int, model: str = 'mistral-
     return input_cost + output_cost
 
 
-def track_api_call(response, model: str = 'mistral-medium-latest') -> float:
+def track_api_call(response_or_model=None, input_tokens: int = 0, output_tokens: int = 0, model: str = None) -> float:
     """
-    Track costs from Strands agent responses.
+    Track costs from Strands agent responses or direct token counts.
 
     Args:
-        response: Response object from Strands agent
-        model: Mistral model identifier used
+        response_or_model: Either a response object from Strands agent OR a model string
+        input_tokens: Number of input tokens (when passing model as first arg)
+        output_tokens: Number of output tokens (when passing model as first arg)
+        model: Mistral model identifier (when passing response as first arg)
+
+    Usage:
+        # With response object
+        track_api_call(response, model='mistral-medium-latest')
+
+        # With token counts
+        track_api_call(model='mistral-medium-latest', input_tokens=500, output_tokens=50)
 
     Returns:
         Cost of this specific API call
     """
-    if hasattr(response, 'metrics') and response.metrics:
-        input_tokens = response.metrics.accumulated_usage.get('inputTokens', 0)
-        output_tokens = response.metrics.accumulated_usage.get('outputTokens', 0)
+    # Handle different call signatures
+    if isinstance(response_or_model, str):
+        # Called with model as first argument
+        model = response_or_model
+    elif hasattr(response_or_model, 'metrics') and response_or_model.metrics:
+        # Called with response object
+        if model is None:
+            model = 'mistral-medium-latest'
+        input_tokens = response_or_model.metrics.accumulated_usage.get('inputTokens', 0)
+        output_tokens = response_or_model.metrics.accumulated_usage.get('outputTokens', 0)
+    else:
+        # Default case
+        if model is None:
+            model = 'mistral-medium-latest'
 
-        cost = calculate_cost(input_tokens, output_tokens, model)
+    cost = calculate_cost(input_tokens, output_tokens, model)
 
-        COST_TRACKER['api_calls'] += 1
-        COST_TRACKER['total_input_tokens'] += input_tokens
-        COST_TRACKER['total_output_tokens'] += output_tokens
-        COST_TRACKER['estimated_cost'] += cost
+    COST_TRACKER['api_calls'] += 1
+    COST_TRACKER['total_input_tokens'] += input_tokens
+    COST_TRACKER['total_output_tokens'] += output_tokens
+    COST_TRACKER['estimated_cost'] += cost
 
-        if model not in COST_TRACKER['by_model']:
-            COST_TRACKER['by_model'][model] = {'calls': 0, 'cost': 0.0}
-        COST_TRACKER['by_model'][model]['calls'] += 1
-        COST_TRACKER['by_model'][model]['cost'] += cost
+    if model not in COST_TRACKER['by_model']:
+        COST_TRACKER['by_model'][model] = {'calls': 0, 'cost': 0.0}
+    COST_TRACKER['by_model'][model]['calls'] += 1
+    COST_TRACKER['by_model'][model]['cost'] += cost
 
-        return cost
-    return 0.0
+    return cost
 
 
 def print_cost_summary():
