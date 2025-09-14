@@ -9,7 +9,7 @@ Even in a competition, tests save debugging time.
 import pytest
 from pathlib import Path
 import sys
-from unittest.mock import patch, MagicMock, Mock
+from unittest.mock import patch, MagicMock
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -491,6 +491,7 @@ class TestSendResults:
 
         response = send_results(valid_results)
 
+        assert response is not None
         assert response.status_code == 200
         mock_request.assert_called_once()
 
@@ -523,6 +524,7 @@ class TestSendResults:
 
         response = send_results(valid_results)
 
+        assert response is not None
         assert response.status_code == 400
 
         captured = capsys.readouterr()
