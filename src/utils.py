@@ -8,7 +8,7 @@ import json
 import boto3
 import requests
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
 
@@ -16,11 +16,11 @@ from botocore.awsrequest import AWSRequest
 def save_json(path: str | Path, data: Dict | List) -> None:
     """
     Save data to JSON file with proper error handling.
-    
+
     Args:
         path: Output file path
         data: Data to save (dict or list)
-        
+
     Example:
         >>> results = [{"persona_id": "p1", "predicted_type": "awareness"}]
         >>> save_json("submission.json", results)
@@ -34,13 +34,13 @@ def save_json(path: str | Path, data: Dict | List) -> None:
 def read_json(path: str | Path) -> Dict | List:
     """
     Load JSON data from file.
-    
+
     Args:
         path: Input file path
-        
+
     Returns:
         Loaded JSON data
-        
+
     Raises:
         FileNotFoundError: If file doesn't exist
     """
@@ -54,10 +54,10 @@ def read_json(path: str | Path) -> Dict | List:
 def load_file_content(path: str | Path) -> str:
     """
     Load raw text content from a file.
-    
+
     Args:
         path: Input file path
-        
+
     Returns:
         File contents as string
     """
@@ -66,105 +66,186 @@ def load_file_content(path: str | Path) -> str:
         return file.read()
 
 
-def send_results(
-    results: List[Dict], 
+def aws_signed_request(path: str, method: str, payload: Optional[Dict] = None) -> requests.Response:
+
+    base_url = "https://cygeoykm2i.execute-api.us-east-1.amazonaws.com/main"
+
+    try:
+        # Set up AWS session and credentials
+        session = boto3.Session(region_name='us-east-1')
+        credentials = session.get_credentials()
+
+        if not credentials:
+            print("❌ AWS credentials not found")
+            return False
+
+        headers = {'Content-Type': 'application/json'}
+
+        # Create and sign the AWS request
+        request = AWSRequest(url=f"{base_url}/{path}", method=method, data=payload, headers=headers)
+        SigV4Auth(credentials, 'execute-api', 'us-east-1').add_auth(request)
+
+        # Make the request (cast to str to satisfy type checker)
+        response = requests.request(
+            method=str(request.method),
+            url=str(request.url),
+            headers=dict(request.headers),
+            data=request.body
+        )
+
+        if response.status_code == 200:
+            print("✅ API connection successful!")
+            return response if path != "health" else True
+        else:
+            print(f"❌ API check failed with status: {response.status_code}")
+            return False
+
+    except Exception as e:
+        print(f"❌ Connection check failed: {e}")
+        return False
+
+
+def sanity_check() -> bool:
+    """
+    Verify connection to the challenge API infrastructure.
+
+    Returns:
+        True if connection successful, False otherwise
+    """
+    return aws_signed_request(path="health", method="GET")
+
+
+def chat_with_persona(
+    persona_id: str,
+    message: str,
+    conversation_id: str = None
+) -> Optional[Tuple[str, str]]:
+    """Send message to persona API and get response"""
+
+    payload = {
+        "persona_id": persona_id,
+        "message": message,
+        "conversation_id": conversation_id,
+    }
+
+    response = aws_signed_request(
+        path="chat",
+        method="POST",
+        payload=json.dumps(payload)
+    )
+
+    if response.status_code != 200:
+        return None
+
+    response_json = response.json()
+    return response_json['response'], response_json['conversation_id']
+
+
+def make_submission(
+    results: List[Dict],
     dry_run: bool = False,
     verbose: bool = True
 ) -> Optional[requests.Response]:
     """
     Submit results to GDSC challenge endpoint.
-    
+
     Args:
         results: List of predictions in challenge format
         dry_run: If True, validate without submitting
         verbose: If True, print status messages
-        
+
     Returns:
         API response or None if dry run
-        
+
     Raises:
         ValueError: If results format is invalid
-        
+
     Example:
         >>> results = generate_predictions()
-        >>> response = send_results(results, dry_run=True)  # Test first!
-        >>> response = send_results(results)  # Then submit
+        >>> response = make_submission(results, dry_run=True)  # Test first!
+        >>> response = make_submission(results)  # Then submit
     """
     # Always validate first
     validate_submission_format(results)
-    
+
     if dry_run:
         if verbose:
             print("🔍 Dry run mode - validating without submitting")
             print(f"✅ {len(results)} results are valid and ready to submit")
         return None
-        
-    # Prepare AWS authenticated request
-    url = "https://cygeoykm2i.execute-api.us-east-1.amazonaws.com/main/submit"
-    session = boto3.Session(region_name='us-east-1')
-    credentials = session.get_credentials()
-    
-    if not credentials:
-        raise ValueError("AWS credentials not found. Check your ~/.aws/credentials")
-    
-    headers = {'Content-Type': 'application/json'}
-    payload = json.dumps({"submission": results})
-    
-    # Sign request with AWS credentials
-    request = AWSRequest(method='POST', url=url, data=payload, headers=headers)
-    SigV4Auth(credentials, 'execute-api', 'us-east-1').add_auth(request)
-    
-    # Send the request (cast to str to satisfy type checker)
-    response = requests.request(
-        method=str(request.method),
-        url=str(request.url),
-        headers=dict(request.headers),
-        data=request.body,
-    )
-    
+
+    payload = json.dumps({"predictions": results})
+    response = aws_signed_request(path="submit", method="POST", payload=payload)
+
     if verbose:
         if response.status_code == 200:
             print("✅ Submission successful!")
             try:
-                msg = response.json().get('message', '')
-                if msg:
-                    print(f"📝 Server message: {msg}")
+                response_json = response.json()
+                if response_json:
+                    print(f"📝 Server response: message: {response_json.get('message', '')}")
+                    print(f"📝 Server response: submission_id: {response_json.get('submission_id', '')}")
             except:
                 pass
         else:
             print(f"❌ Submission failed with status: {response.status_code}")
             print(f"Response: {response.text}")
-        
+
     return response
 
+def fetch_my_submissions() -> Optional[requests.Response]:
+    """
+    Fetch my team's submissions from GDSC challenge endpoint.
+
+    Args:
+        verbose: If True, print status messages
+
+    Returns:
+        API response or None if dry run
+
+    Raises:
+        ValueError: If my_submissions format is invalid
+
+    Example:
+        >>> my_submissions = fetch_my_submissions()
+    """
+
+    response = aws_signed_request(path="submit", method="GET")
+
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print(f"❌ Error fetching submissions: {response.status_code}")
+        print(f"Response: {response.text}")
+        return None
 
 def validate_submission_format(results: List[Dict]) -> None:
     """
     Validate submission format before sending.
-    
+
     Good practice: Always validate before external API calls!
-    
+
     Args:
         results: List of prediction dictionaries
-        
+
     Raises:
         ValueError: If format is invalid
     """
     if not results:
         raise ValueError("Results list is empty")
-        
+
     if len(results) != 100:
         print(f"⚠️  Warning: Expected 100 personas, got {len(results)}")
-    
+
     required_fields = {'persona_id', 'predicted_type'}
     valid_types = {'jobs+trainings', 'trainings_only', 'awareness'}
-    
+
     for i, result in enumerate(results):
         # Check required fields
         if not required_fields.issubset(result.keys()):
             missing = required_fields - result.keys()
             raise ValueError(f"Result {i} missing required fields: {missing}")
-            
+
         # Check predicted_type
         pred_type = result['predicted_type']
         if pred_type not in valid_types:
@@ -172,7 +253,7 @@ def validate_submission_format(results: List[Dict]) -> None:
                 f"Result {i} has invalid predicted_type: '{pred_type}'. "
                 f"Must be one of: {valid_types}"
             )
-            
+
         # Type-specific validation
         if pred_type == 'jobs+trainings':
             if 'jobs' not in result:
@@ -187,34 +268,34 @@ def validate_submission_format(results: List[Dict]) -> None:
                     raise ValueError(f"Result {i} job missing 'job_id'")
                 if 'suggested_trainings' not in job:
                     raise ValueError(f"Result {i} job missing 'suggested_trainings'")
-                    
+
         elif pred_type == 'trainings_only':
             if 'trainings' not in result:
                 raise ValueError(f"Result {i} missing 'trainings' field")
             if not isinstance(result['trainings'], list):
                 raise ValueError(f"Result {i} 'trainings' must be a list")
-                
+
         elif pred_type == 'awareness':
             # awareness type can have optional predicted_items
             pass
-            
+
     print(f"✅ Validated {len(results)} results - format is correct!")
 
 
 def get_job_paths() -> List[Path]:
     """
     Discover all job description files in the dataset.
-    
+
     Returns:
         List of Path objects for job files
     """
     data_dir = Path('./data/jobs')
     if not data_dir.exists():
         data_dir = Path('../data/jobs')  # Try parent directory
-    
+
     if not data_dir.exists():
         raise FileNotFoundError(f"Jobs directory not found. Expected at: {data_dir}")
-        
+
     paths = sorted([f for f in data_dir.iterdir() if f.suffix == '.md'])
     return paths
 
@@ -222,17 +303,17 @@ def get_job_paths() -> List[Path]:
 def get_training_paths() -> List[Path]:
     """
     Discover all training program files in the dataset.
-    
+
     Returns:
         List of Path objects for training files
     """
     data_dir = Path('./data/trainings')
     if not data_dir.exists():
         data_dir = Path('../data/trainings')  # Try parent directory
-        
+
     if not data_dir.exists():
         raise FileNotFoundError(f"Trainings directory not found. Expected at: {data_dir}")
-        
+
     paths = sorted([f for f in data_dir.iterdir() if f.suffix == '.md'])
     return paths
 
@@ -345,46 +426,3 @@ def reset_cost_tracker():
         'by_model': {}
     }
 
-
-def sanity_check() -> bool:
-    """
-    Verify connection to the challenge API infrastructure.
-
-    Returns:
-        True if connection successful, False otherwise
-    """
-    base_url = "https://cygeoykm2i.execute-api.us-east-1.amazonaws.com/main/health"
-    
-    try:
-        # Set up AWS session and credentials
-        session = boto3.Session(region_name='us-east-1')
-        credentials = session.get_credentials()
-        
-        if not credentials:
-            print("❌ AWS credentials not found")
-            return False
-            
-        headers = {'Content-Type': 'application/json'}
-        
-        # Create and sign the AWS request
-        request = AWSRequest(method='GET', url=base_url, data=None, headers=headers)
-        SigV4Auth(credentials, 'execute-api', 'us-east-1').add_auth(request)
-        
-        # Make the request (cast to str to satisfy type checker)
-        response = requests.request(
-            method=str(request.method),
-            url=str(request.url),
-            headers=dict(request.headers),
-            data=request.body
-        )
-
-        if response.status_code == 200:
-            print("✅ API connection successful!")
-            return True
-        else:
-            print(f"❌ API check failed with status: {response.status_code}")
-            return False
-            
-    except Exception as e:
-        print(f"❌ Connection check failed: {e}")
-        return False
