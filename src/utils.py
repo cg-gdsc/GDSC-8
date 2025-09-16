@@ -8,7 +8,7 @@ import json
 import boto3
 import requests
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
 
@@ -66,85 +66,141 @@ def load_file_content(path: str | Path) -> str:
         return file.read()
 
 
-def aws_signed_request(path: str, method: str, payload: Optional[Dict] = None) -> requests.Response:
+def aws_signed_request(
+    path: str,
+    method: str,
+    payload: Optional[Any] = None,
+    verbose: bool = True,
+) -> Optional[requests.Response | bool]:
+    """Make a SigV4 signed request to the challenge API.
 
-    base_url = "https://cygeoykm2i.execute-api.us-east-1.amazonaws.com/main"
+    Lean error handling: raises RuntimeError on failure.
 
-    try:
-        # Set up AWS session and credentials
-        session = boto3.Session(region_name='us-east-1')
-        credentials = session.get_credentials()
-
-        if not credentials:
-            print("❌ AWS credentials not found")
-            return False
-
-        headers = {'Content-Type': 'application/json'}
-
-        # Create and sign the AWS request
-        request = AWSRequest(url=f"{base_url}/{path}", method=method, data=payload, headers=headers)
-        SigV4Auth(credentials, 'execute-api', 'us-east-1').add_auth(request)
-
-        # Make the request (cast to str to satisfy type checker)
-        response = requests.request(
-            method=str(request.method),
-            url=str(request.url),
-            headers=dict(request.headers),
-            data=request.body
-        )
-
-        if response.status_code == 200:
-            print("✅ API connection successful!")
-            return response if path != "health" else True
-        else:
-            print(f"❌ API check failed with status: {response.status_code}")
-            return False
-
-    except Exception as e:
-        print(f"❌ Connection check failed: {e}")
-        return False
-
-
-def sanity_check() -> bool:
-    """
-    Verify connection to the challenge API infrastructure.
+    Args:
+        path: API path segment (e.g. "chat", "submit", "health")
+        method: HTTP verb (GET/POST)
+        payload: dict / list / JSON-string / None
+        verbose: print status messages
 
     Returns:
-        True if connection successful, False otherwise
+        Response object, True (for health success), or None/False on failure
     """
-    return aws_signed_request(path="health", method="GET")
+    base_url = "https://cygeoykm2i.execute-api.us-east-1.amazonaws.com/main"
+
+    # Normalize payload into raw JSON string (boto3 signing sends raw body)
+    body = None
+    if payload is not None:
+        try:
+            if isinstance(payload, (dict, list)):
+                body = json.dumps(payload)
+            elif isinstance(payload, (str, bytes)):
+                body = payload if isinstance(payload, str) else payload.decode('utf-8')
+            else:  # Fallback attempt json serialization
+                body = json.dumps(payload)
+        except Exception as e:  # pragma: no cover
+            msg = f"Failed to serialize payload for path '{path}'"
+            if verbose:
+                print(f"❌ {msg}\n   ↳ {e}")
+            raise RuntimeError(msg) from e
+
+    try:
+        session = boto3.Session(region_name='us-east-1')
+        credentials = session.get_credentials()
+        if not credentials:
+            msg = "AWS credentials not found (configure with aws configure)"
+            if verbose:
+                print(f"❌ {msg}")
+            raise RuntimeError(msg)
+
+        headers = {'Content-Type': 'application/json'}
+        request = AWSRequest(url=f"{base_url}/{path}", method=method.upper(), data=body, headers=headers)
+        SigV4Auth(credentials, 'execute-api', 'us-east-1').add_auth(request)
+
+        try:
+            response = requests.request(
+                method=str(request.method),
+                url=str(request.url),
+                headers=dict(request.headers),
+                data=request.body,
+            )
+        except requests.RequestException as e:
+            msg = f"Network error during request to '{path}'"
+            if verbose:
+                print(f"❌ {msg}\n   ↳ {e}")
+            raise RuntimeError(msg) from e
+
+        if response.status_code == 200:
+            if verbose:
+                print("✅ API request successful")
+            return response if path != "health" else True
+
+        # Non-200 status handling
+        msg = f"API call '{path}' failed: status={response.status_code} body={response.text[:300]}"
+        if verbose:
+            print(f"❌ {msg}")
+        raise RuntimeError(msg)
+
+    except Exception as e:  # pragma: no cover - broad fallback
+        msg = f"Unexpected error during signed request to '{path}'"
+        if verbose:
+            print(f"❌ {msg}\n   ↳ {e}")
+        raise RuntimeError(msg) from e
+
+
+def sanity_check(verbose: bool = True) -> bool:
+    """Quick connectivity & credentials check.
+
+    Args:
+        verbose: print status
+    Returns:
+        True if reachable + credentials sign correctly, else False
+    """
+    try:
+        result = aws_signed_request("health", "GET", verbose=verbose)
+        return bool(result)
+    except Exception:
+        return False
 
 
 def chat_with_persona(
     persona_id: str,
     message: str,
-    conversation_id: str = None
+    conversation_id: str | None = None,
+    verbose: bool = True,
 ) -> Optional[Tuple[str, str]]:
-    """Send message to persona API and get response"""
+    """Send a message to a persona and return (response_text, conversation_id).
 
+    Returns None on failure unless raise_on_error=True.
+    """
     payload = {
         "persona_id": persona_id,
         "message": message,
         "conversation_id": conversation_id,
     }
-
-    response = aws_signed_request(
-        path="chat",
-        method="POST",
-        payload=json.dumps(payload)
-    )
-
-    if response.status_code != 200:
+    try:
+        resp = aws_signed_request(
+            path="chat",
+            method="POST",
+            payload=payload,
+            verbose=verbose,
+        )
+        if not resp:
+            return None
+        data = resp.json()
+        for key in ("response", "conversation_id"):
+            if key not in data:
+                raise RuntimeError(f"Chat response missing key '{key}'")
+        return data["response"], data["conversation_id"]
+    except Exception as e:
+        if verbose:
+            print(f"❌ Chat failed: {e}")
         return None
-
-    response_json = response.json()
-    return response_json['response'], response_json['conversation_id']
 
 
 def make_submission(
     results: List[Dict],
     dry_run: bool = False,
-    verbose: bool = True
+    verbose: bool = True,
 ) -> Optional[requests.Response]:
     """
     Submit results to GDSC challenge endpoint.
@@ -174,26 +230,36 @@ def make_submission(
             print(f"✅ {len(results)} results are valid and ready to submit")
         return None
 
-    payload = json.dumps({"predictions": results})
-    response = aws_signed_request(path="submit", method="POST", payload=payload)
-
-    if verbose:
-        if response.status_code == 200:
-            print("✅ Submission successful!")
+    try:
+        response = aws_signed_request(
+            path="submit",
+            method="POST",
+            payload={"submission": results},
+            verbose=verbose,
+        )
+        if not response:
+            return None
+        if verbose:
             try:
                 response_json = response.json()
+                print("✅ Submission successful!")
                 if response_json:
-                    print(f"📝 Server response: message: {response_json.get('message', '')}")
-                    print(f"📝 Server response: submission_id: {response_json.get('submission_id', '')}")
-            except:
-                pass
-        else:
-            print(f"❌ Submission failed with status: {response.status_code}")
-            print(f"Response: {response.text}")
+                    msg = response_json.get('message')
+                    sid = response_json.get('submission_id')
+                    if msg:
+                        print(f"📝 Server message: {msg}")
+                    if sid:
+                        print(f"🆔 Submission ID: {sid}")
+            except ValueError:
+                if verbose:
+                    print("⚠️  Submission succeeded but response body was not JSON")
+        return response
+    except Exception as e:
+        if verbose:
+            print(f"❌ Submission failed: {e}")
+        return None
 
-    return response
-
-def fetch_my_submissions() -> Optional[requests.Response]:
+def fetch_my_submissions(verbose: bool = True) -> Optional[List[Dict]]:
     """
     Fetch my team's submissions from GDSC challenge endpoint.
 
@@ -210,13 +276,17 @@ def fetch_my_submissions() -> Optional[requests.Response]:
         >>> my_submissions = fetch_my_submissions()
     """
 
-    response = aws_signed_request(path="submit", method="GET")
-
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print(f"❌ Error fetching submissions: {response.status_code}")
-        print(f"Response: {response.text}")
+    try:
+        response = aws_signed_request(path="submit", method="GET", verbose=verbose)
+        if not response:
+            return None
+        try:
+            return response.json()
+        except ValueError as e:
+            raise RuntimeError("Failed to parse JSON for submissions list") from e
+    except Exception as e:
+        if verbose:
+            print(f"❌ Fetch submissions failed: {e}")
         return None
 
 def validate_submission_format(results: List[Dict]) -> None:
