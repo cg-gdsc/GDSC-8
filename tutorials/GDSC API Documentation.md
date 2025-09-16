@@ -67,7 +67,7 @@ A `conversation_id` is generated for this conversation based on the `team_id`, `
 ]
 ```
 
-You can continue this interaction until the limit of interactions per conversation is reached TODO.
+You can continue this interaction until the limit of interactions per conversation is reached. See limits at the bottom of the file.
 
 To start a new conversation, simply send a payload with another `persona_id` and no `conversation_id`
 
@@ -81,7 +81,7 @@ To start a new conversation, simply send a payload with another `persona_id` and
 [
   {
     "submission": [
-			"TODO fill this with examples"
+			...
 		]
   }
 ]
@@ -127,6 +127,8 @@ A `submission_id` is generated based on the `team_id` and `submission_timestamp`
 
 ## API limits
 
-- X conversations per day
-- X interactions per conversation (X each side)
-- X submissions per day
+- 5 conversations per persona per day
+- 20 interactions per conversation (10 each side)
+- 30k tokens per conversation on GDSC API side
+  - when chatting with a persona, this persona calls Mistral and consumes token. The persona should not exceed 30k tokens during the conversation
+- 1 submissions per week
