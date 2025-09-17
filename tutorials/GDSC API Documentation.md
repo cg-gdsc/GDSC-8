@@ -133,4 +133,4 @@ A `submission_id` is generated based on the `team_id` and `submission_timestamp`
 - 20 interactions per conversation (10 each side)
 - 30k tokens per conversation on GDSC API side
   - when chatting with a persona, this persona calls Mistral and consumes token. The persona should not exceed 30k tokens during the conversation
-- 60 submissions in total during the challenge
+- 120 submissions in total during the challenge
