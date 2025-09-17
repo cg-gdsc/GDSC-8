@@ -40,12 +40,13 @@ For the first interaction, define a `persona_id` which ranges from `persona_001`
 [
   {
     "conversation_id": "{team_id}#{persona_id}#{conv_timestamp}",
-		"response": "hello I am 20 years old and interested in construction"
+		"response": "hello I am 20 years old and interested in construction",
+		"conversation_count_week": 21
   }
 ]
 ```
 
-A `conversation_id` is generated for this conversation based on the `team_id`, `persona_id` and `conv_timestamp`, which you have to send from now on to continue talking to this persona.
+A `conversation_id` is generated for this conversation based on the `team_id`, `persona_id` and `conv_timestamp`, which you have to send from now on to continue talking to this persona. You are also informed how many conversation your team has had this week.
 
 ```json
 [
@@ -93,7 +94,8 @@ To start a new conversation, simply send a payload with another `persona_id` and
 [
 	{
 			"submission_id": "{team_id}#{submission_timestamp}",
-			"message": "Submission saved successfully"
+			"message": "Submission saved successfully",
+			"submission_count": 4
 	},
 ]
 ```
@@ -127,8 +129,8 @@ A `submission_id` is generated based on the `team_id` and `submission_timestamp`
 
 ## API limits
 
-- 5 conversations per persona per day
+- 400 conversations per week across all personas
 - 20 interactions per conversation (10 each side)
 - 30k tokens per conversation on GDSC API side
   - when chatting with a persona, this persona calls Mistral and consumes token. The persona should not exceed 30k tokens during the conversation
-- 1 submissions per week
+- 60 submissions in total during the challenge

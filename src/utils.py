@@ -187,9 +187,11 @@ def chat_with_persona(
         if not resp:
             return None
         data = resp.json()
-        for key in ("response", "conversation_id"):
+        for key in ["response", "conversation_id", "conversation_count_week"]:
             if key not in data:
                 raise RuntimeError(f"Chat response missing key '{key}'")
+        if data["conversation_count_week"]:
+            print(f"💬 Conversation count this week: {data['conversation_count_week']}")
         return data["response"], data["conversation_id"]
     except Exception as e:
         if verbose:
@@ -246,10 +248,13 @@ def make_submission(
                 if response_json:
                     msg = response_json.get('message')
                     sid = response_json.get('submission_id')
+                    scount = response_json.get('submission_count')
                     if msg:
                         print(f"📝 Server message: {msg}")
                     if sid:
                         print(f"🆔 Submission ID: {sid}")
+                    if scount:
+                        print(f"📊 Total submissions: {scount}")
             except ValueError:
                 if verbose:
                     print("⚠️  Submission succeeded but response body was not JSON")
