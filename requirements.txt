@@ -1,0 +1,5 @@
+python-dotenv
+strands-agents-tools==0.2.7
+strands-agents[mistral]==1.8.0
+tqdm
+pydantic
