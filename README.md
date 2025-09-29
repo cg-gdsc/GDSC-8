@@ -33,3 +33,21 @@ Here's a breakdown of what you'll find in this repository:
  data exploration, feature engineering, and model building, as these Jupyter notebooks provide a solid foundation for 
  understanding the problem at hand and developing effective strategies.
 
+---
+
+## Optional trainings
+- **Udemy**:
+  - [Complete Guide to MCP in Python](https://capgemini.udemy.com/course/learn-mcp-model-context-protocol-complete-guide/)
+  - [Intro to MCP](https://capgemini.udemy.com/course/intro-to-mcp-model-content-protocol-claude/)
+
+- **Coursera**:
+  - [Building AI Agents with MCP Servers](https://www.coursera.org/videos/vibe-coding-with-cursor-ai/5jaGt?apiSource=enterprise_external_api_leg_with_course_type&authProvider=capgemini&isExternal=true&program=capgemini-learning-program-71mtd)
+  - [Introduction to LangChain Framework](https://www.coursera.org/videos/develop-generative-ai-applications-get-started/J2RdU?isExternal=true&authProvider=capgemini&attemptSSOLogin=true&program=capgemini-learning-program-71mtd&apiSource=enterprise_external_api_leg_with_course_type)
+  - [Using LangChain with Amazon Bedrock](https://www.coursera.org/videos/amazon-bedrock-customization-optimization-automation/xdS84?isExternal=true&authProvider=capgemini&attemptSSOLogin=true&program=capgemini-learning-program-71mtd&apiSource=enterprise_external_api_leg_with_course_type)
+
+- **AWS**:
+  - You can access [(skill builder website)](https://skillbuilder.aws/) and log in with your Capgemini account. If you don't have one, follow the steps on the page to create one.
+  - [Building Production-Ready AI Agents with Amazon Bedrock AgentCore](https://skillbuilder.aws/learn/4G7V8NQB5B/building-productionready-ai-agents-with-amazon-bedrock-agentcore)
+
+- **Mistral**:
+  - [Building MCP powered Assistants](https://www.youtube.com/@MistralAIOfficial/streams)
