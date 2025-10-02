@@ -51,3 +51,4 @@ Here's a breakdown of what you'll find in this repository:
 
 - **Mistral**:
   - [Building MCP powered Assistants](https://www.youtube.com/@MistralAIOfficial/streams)
+  - [Mistral Cookbook](https://github.com/mistralai/cookbook/tree/main)
