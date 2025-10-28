@@ -1,5 +1,5 @@
 {
-  "team_name": "TurtleAI",
+  "team_name": "TurtleAI-GDSC_Account_288",
   "submissions": [
     {[
   {
@@ -58,6 +58,31 @@ with open(submission_path, "r") as f:
 
 # Sottometti (usa la funzione `make_submission` dal tuo script)
 response = make_submission(results, dry_run=False)
+
+# Verifica la risposta
+if response.status_code == 200:
+    print("✅ Sottomissione avvenuta con successo!")
+else:
+    print(f"❌ Errore: {response.text}")
+import requests
+import json
+
+# Carica il file JSON
+with open("submission.json", "r") as f:
+    payload = json.load(f)
+
+# URL dell'API (sostituisci con l'URL reale)
+api_url = "https://api.example.com/submit"
+
+# Invia la richiesta POST
+response = requests.post(
+    api_url,
+    json=payload,
+    headers={
+        "Authorization": f"Bearer {AWS_SESSION_TOKEN}",  # Se richiesto
+        "Content-Type": "application/json"
+    }
+)
 
 # Verifica la risposta
 if response.status_code == 200:
