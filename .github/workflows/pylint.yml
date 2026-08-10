@@ -1,0 +1,91 @@
+{
+  "team_name": "TurtleAI-GDSC_Account_288",
+  "submissions": [
+    {[
+  {
+    "persona_id": "persona_001",
+    "predicted_type": "jobs+trainings",
+    "jobs": [
+      {
+        "job_id": "j1",
+        "suggested_trainings": ["t1", "t2"]
+      }
+    ]
+  },
+  {
+    "persona_id": "persona_002",
+    "predicted_type": "jobs",
+    "jobs": [
+      {
+        "job_id": "j2",
+        "suggested_trainings": ["t3"]
+      }
+    ]
+  },
+  {
+    "persona_id": "persona_003",
+    "predicted_type": "trainings",
+    "jobs": []
+  },
+  {
+    "persona_id": "persona_004",
+    "predicted_type": "jobs+trainings",
+    "jobs": [
+      {
+        "job_id": "j3",
+        "suggested_trainings": ["t4", "t5"]
+      }
+    ]
+  },
+  {
+    "persona_id": "persona_005",
+    "predicted_type": "jobs",
+    "jobs": [
+      {
+        "job_id": "j4",
+        "suggested_trainings": []
+      }
+    ]
+  }
+]
+import json
+from pathlib import Path
+
+# Carica il tuo JSON
+submission_path = Path("../submissions/my_submission.json")
+with open(submission_path, "r") as f:
+    results = json.load(f)
+
+# Sottometti (usa la funzione `make_submission` dal tuo script)
+response = make_submission(results, dry_run=False)
+
+# Verifica la risposta
+if response.status_code == 200:
+    print("✅ Sottomissione avvenuta con successo!")
+else:
+    print(f"❌ Errore: {response.text}")
+import requests
+import json
+
+# Carica il file JSON
+with open("submission.json", "r") as f:
+    payload = json.load(f)
+
+# URL dell'API (sostituisci con l'URL reale)
+api_url = "https://api.example.com/submit"
+
+# Invia la richiesta POST
+response = requests.post(
+    api_url,
+    json=payload,
+    headers={
+        "Authorization": f"Bearer {AWS_SESSION_TOKEN}",  # Se richiesto
+        "Content-Type": "application/json"
+    }
+)
+
+# Verifica la risposta
+if response.status_code == 200:
+    print("✅ Sottomissione avvenuta con successo!")
+else:
+    print(f"❌ Errore: {response.text}")

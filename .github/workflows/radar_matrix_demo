@@ -1,0 +1,62 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from math import pi
+
+# --- PARAMETRI ---
+N = 4  # Numero di assi (productivity, environmental, safety, investment)
+MATRIX_SIZE = 50
+FIG_SIZE = (25, 25)  # Dimensione figura finale (in pollici)
+DPI = 300  # Risoluzione immagine salvata
+
+# Nomi degli assi
+categories = ['Productivity', 'Environmental', 'Safety', 'Investment']
+
+# Soglie per i colori (personalizzabili)
+GREEN_THRESHOLD = 70
+YELLOW_THRESHOLD = 40
+
+# --- GENERA MATRICE DI VALORI IDEALI (DEMO) ---
+# Valori casuali tra 0 e 100 per ogni parametro, in ogni cella
+np.random.seed(42)  # Per riproducibilità
+matrix = np.random.randint(0, 100, size=(MATRIX_SIZE, MATRIX_SIZE, N))
+
+# --- FUNZIONE PER DETERMINARE IL COLORE DEL RADAR ---
+def get_radar_color(values):
+    if all(v >= GREEN_THRESHOLD for v in values):
+        return 'green'
+    elif any(v < YELLOW_THRESHOLD for v in values):
+        return 'red'
+    else:
+        return 'gold'
+
+# --- FUNZIONE PER DISEGNARE UN SINGOLO RADAR CHART ---
+def draw_radar(ax, values, color):
+    angles = [n / float(N) * 2 * pi for n in range(N)]
+    angles += angles[:1]
+    values += values[:1]
+
+    ax.plot(angles, values, color=color, linewidth=1, linestyle='solid')
+    ax.fill(angles, values, color=color, alpha=0.25)
+
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(categories, size=4)
+    ax.set_ylim(0, 100)
+    ax.set_yticks([20, 40, 60, 80, 100])
+    ax.set_yticklabels(["20", "40", "60", "80", "100"], size=4)
+    ax.grid(False)
+
+# --- CREA LA FIGURA FINALE ---
+fig = plt.figure(figsize=FIG_SIZE)
+fig.suptitle("HAZOP+LCA Risk Assessment Matrix (50x50 Demo)", y=1.01, fontsize=16)
+
+# Disegna ogni radar chart nella matrice
+for i in range(MATRIX_SIZE):
+    for j in range(MATRIX_SIZE):
+        ax = fig.add_subplot(MATRIX_SIZE, MATRIX_SIZE, i*MATRIX_SIZE + j + 1, polar=True)
+        color = get_radar_color(matrix[i, j])
+        draw_radar(ax, matrix[i, j], color)
+
+plt.tight_layout()
+plt.subplots_adjust(hspace=0.05, wspace=0.05)
+plt.savefig("hazop_lca_radar_matrix_demo.png", dpi=DPI, bbox_inches='tight')
+plt.close()
